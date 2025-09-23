@@ -1,6 +1,6 @@
 {
-  "name": "Enquête CNPA",
-  "short_name": "CNPA",
+  "name": "Enquête terrain",
+  "short_name": "Enquête",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
