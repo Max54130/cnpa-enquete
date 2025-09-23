@@ -677,39 +677,74 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-    <script>
-let deferredPrompt;
+    <!-- UI install PWA (bouton + ne plus proposer) -->
+<div id="install-container" style="display:none; position:fixed; right:12px; bottom:12px; z-index:1000;">
+  <button id="installBtn" type="button"
+          style="padding:.6rem .9rem; border-radius:.6rem; border:none; font-weight:600; cursor:pointer;">
+    Installer l’app
+  </button>
+  <button id="dismissInstall" type="button"
+          aria-label="Ne plus proposer" title="Ne plus proposer"
+          style="margin-left:.5rem; background:transparent; border:none; text-decoration:underline; cursor:pointer; font-size:.9rem;">
+    Ne plus proposer
+  </button>
+</div>
+<script>
+(function () {
+  const LS_HIDE_KEY = 'pwaInstallHide';
+  const LS_INSTALLED = 'pwaInstalled';
+  let deferredPrompt = null;
 
-window.addEventListener('beforeinstallprompt', (e) => {
-  // Empêche Chrome d’afficher sa propre bannière
-  e.preventDefault();
-  deferredPrompt = e;
+  const $wrap = document.getElementById('install-container');
+  const $btn  = document.getElementById('installBtn');
+  const $dismiss = document.getElementById('dismissInstall');
 
-  // Crée un bouton d’installation personnalisé
-  const installBtn = document.createElement('button');
-  installBtn.textContent = "📲 Installer l'application";
-  installBtn.style.position = "fixed";
-  installBtn.style.bottom = "20px";
-  installBtn.style.left = "50%";
-  installBtn.style.transform = "translateX(-50%)";
-  installBtn.style.padding = "12px 20px";
-  installBtn.style.borderRadius = "8px";
-  installBtn.style.border = "none";
-  installBtn.style.background = "#005BBB";
-  installBtn.style.color = "#fff";
-  installBtn.style.fontSize = "16px";
-  installBtn.style.fontWeight = "600";
-  installBtn.style.zIndex = "1000";
-  document.body.appendChild(installBtn);
+  const isStandalone = () =>
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
 
-  installBtn.addEventListener('click', async () => {
-    installBtn.style.display = "none"; // cache le bouton
-    deferredPrompt.prompt();           // déclenche l’invite
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User response: ${outcome}`);
-    deferredPrompt = null;
+  const hide = () => { $wrap.style.display = 'none'; };
+  const show = () => { $wrap.style.display = 'block'; };
+  const permanentlyHide = () => { localStorage.setItem(LS_HIDE_KEY, '1'); hide(); };
+
+  // Déjà installé ou l’utilisateur a demandé de cacher
+  if (isStandalone() || localStorage.getItem(LS_HIDE_KEY) === '1') {
+    hide();
+  }
+
+  // Quand l’install est possible
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!isStandalone() && localStorage.getItem(LS_HIDE_KEY) !== '1') {
+      show();
+    }
   });
-});
+
+  // Clic "Installer l’app"
+  $btn?.addEventListener('click', async () => {
+    if (!deferredPrompt) { if (isStandalone()) permanentlyHide(); return; }
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    if (outcome === 'accepted') hide();
+  });
+
+  // Clic "Ne plus proposer"
+  $dismiss?.addEventListener('click', permanentlyHide);
+
+  // Après installation
+  window.addEventListener('appinstalled', () => {
+    localStorage.setItem(LS_INSTALLED, '1');
+    permanentlyHide();
+  });
+
+  // Sécurité au chargement si déjà standalone
+  if (isStandalone()) {
+    localStorage.setItem(LS_INSTALLED, '1');
+    permanentlyHide();
+  }
+})();
 </script>
 </body>
 </html>
